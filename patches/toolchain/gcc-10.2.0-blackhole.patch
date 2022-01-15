@@ -1,0 +1,161 @@
+diff -Nur gcc-10.2.0/config.sub gcc-10.2.0-blackhole/config.sub
+--- gcc-10.2.0/config.sub	2020-07-23 02:35:16.000000000 -0400
++++ gcc-10.2.0-blackhole/config.sub	2021-09-25 11:47:58.212865300 -0400
+@@ -1338,7 +1338,7 @@
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+ 	# sysv* is not here because it comes later, after sysvr4.
+-	gnu* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | bsd* | mach* | minix* | genix* | ultrix* | irix* | blackhole* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]*\
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* | kopensolaris* | plan9* \
+diff -Nur gcc-10.2.0/fixincludes/mkfixinc.sh gcc-10.2.0-blackhole/fixincludes/mkfixinc.sh
+--- gcc-10.2.0/fixincludes/mkfixinc.sh	2020-07-23 02:35:16.000000000 -0400
++++ gcc-10.2.0-blackhole/fixincludes/mkfixinc.sh	2021-09-25 15:17:27.514752600 -0400
+@@ -11,6 +11,7 @@
+ 
+ # Check for special fix rules for particular targets
+ case $machine in
++	*-blackhole* | \
+     i?86-*-cygwin* | \
+     i?86-*-mingw32* | \
+     x86_64-*-mingw32* | \
+diff -Nur gcc-10.2.0/gcc/config/blackhole.h gcc-10.2.0-blackhole/gcc/config/blackhole.h
+--- gcc-10.2.0/gcc/config/blackhole.h	1969-12-31 19:00:00.000000000 -0500
++++ gcc-10.2.0-blackhole/gcc/config/blackhole.h	2021-09-25 15:18:20.629251800 -0400
+@@ -0,0 +1,68 @@
++/* Target definitions for BlackHoleOS systems.
++   Copyright (C) 1989-2020 Free Software Foundation, Inc.
++   Contributed by FreeLancer Development Team.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify
++it under the terms of the GNU General Public License as published by
++the Free Software Foundation; either version 3, or (at your option)
++any later version.
++
++GCC is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++Under Section 7 of GPL version 3, you are granted additional
++permissions described in the GCC Runtime Library Exception, version
++3.1, as published by the Free Software Foundation.
++
++You should have received a copy of the GNU General Public License and
++a copy of the GCC Runtime Library Exception along with this program;
++see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++<http://www.gnu.org/licenses/>.  */
++
++#ifndef CONFIG_BLACKHOLE_H
++#define CONFIG_BLACKHOLE_H
++
++/* The definitions on this file are common to all processor types running
++ * BlackHoleOS.
++ */
++ 
++ /* Useful if you wish to make target-specific GCC changes. */
++#undef TARGET_BLACKHOLE
++#define TARGET_BLACKHOLE 1
++ 
++/* Default arguments you want when running your
++   i686-blackhole-gcc/x86_64-blackhole-gcc toolchain */
++#undef LIB_SPEC
++#define LIB_SPEC "--start-group -lsyscalls -lm -lcrtlib --end-group" /* link against C standard library */
++
++/* Support dynamic linking */
++#undef LINK_SPEC
++#define LINK_SPEC "%{shared:-shared} %{static:-static} %{!shared: %{!static: %{rdynamic:-export-dynamic}}}"
++ 
++/* Files that are linked before user code.
++   The %s tells GCC to look for these files in the library directory. */
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
++ 
++/* Files that are linked after user code. */
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
++ 
++/* Additional predefined macros. */
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()      \
++  do {                                \
++    builtin_define ("__blackhole__");      \
++    builtin_define ("__unix__");      \
++    builtin_assert ("system=blackhole");   \
++    builtin_assert ("system=unix");   \
++    builtin_assert ("system=posix");   \
++  } while(0);
++
++#define STANDARD_STARTFILE_PREFIX "/system/lib/"
++
++#endif
+\ No newline at end of file
+diff -Nur gcc-10.2.0/gcc/config.gcc gcc-10.2.0-blackhole/gcc/config.gcc
+--- gcc-10.2.0/gcc/config.gcc	2020-07-23 02:35:17.000000000 -0400
++++ gcc-10.2.0-blackhole/gcc/config.gcc	2021-09-25 12:04:41.189324000 -0400
+@@ -675,6 +675,13 @@
+ 
+ # Common parts for widely ported systems.
+ case ${target} in
++*-*-blackhole*)
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  use_gcc_stdint=wrap
++  native_system_header_dir="/system/include"
++  ;;
+ *-*-darwin*)
+   tmake_file="t-darwin "
+   tm_file="${tm_file} darwin.h"
+@@ -1858,6 +1865,12 @@
+ 	tmake_file="${tmake_file} ${cpu_type}/t-darwin64-biarch t-slibgcc"
+ 	tm_file="${tm_file} ${cpu_type}/darwin64-biarch.h"
+ 	;;
++i[34567]86-*-blackhole*)
++    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h blackhole.h"
++    ;;
++x86_64-*-blackhole*)
++    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h blackhole.h"
++    ;;
+ i[34567]86-*-elfiamcu)
+ 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/iamcu.h"
+ 	;;
+diff -Nur gcc-10.2.0/libgcc/config.host gcc-10.2.0-blackhole/libgcc/config.host
+--- gcc-10.2.0/libgcc/config.host	2020-07-23 02:35:18.000000000 -0400
++++ gcc-10.2.0-blackhole/libgcc/config.host	2021-09-25 15:15:22.234706500 -0400
+@@ -684,6 +684,14 @@
+ hppa*-*-netbsd*)
+ 	tmake_file="$tmake_file pa/t-netbsd"
+ 	;;
++i[34567]86-*-blackhole*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
++x86_64-*-blackhole*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
+ i[34567]86-*-darwin*)
+ 	tmake_file="$tmake_file i386/t-crtpc t-crtfm i386/t-msabi"
+ 	tm_file="$tm_file i386/darwin-lib.h"
+diff -Nur gcc-10.2.0/libstdc++-v3/crossconfig.m4 gcc-10.2.0-blackhole/libstdc++-v3/crossconfig.m4
+--- gcc-10.2.0/libstdc++-v3/crossconfig.m4	2020-07-23 02:35:19.000000000 -0400
++++ gcc-10.2.0-blackhole/libstdc++-v3/crossconfig.m4	2021-09-25 15:13:18.528104900 -0400
+@@ -64,6 +64,13 @@
+     #GCC_CHECK_TLS
+     AM_ICONV
+     ;;
++	
++  *-blackhole*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
+ 
+   *-darwin*)
+     # Darwin versions vary, but the linker should work in a cross environment,

@@ -1,0 +1,199 @@
+diff -Nur binutils-2.36.1/bfd/config.bfd blackhole-binutils-2.36.1/bfd/config.bfd
+--- binutils-2.36.1/bfd/config.bfd	2021-01-09 05:47:33.000000000 -0500
++++ blackhole-binutils-2.36.1/bfd/config.bfd	2021-09-24 15:28:05.066114800 -0400
+@@ -556,6 +556,19 @@
+     targ_defvec=hppa_som_vec
+     targ_selvecs=hppa_elf32_vec
+     ;;
++	
++  i[3-7]86-*-blackhole*)
++    targ_defvec=i386_elf32_vec
++    targ_selvecs=
++    targ64_selvecs=x86_64_elf64_vec
++    ;;
++#ifdef BFD64
++  x86_64-*-blackhole*)
++    targ_defvec=x86_64_elf64_vec
++    targ_selvecs=i386_elf32_vec
++    want64=true
++    ;;
++#endif
+ 
+   i[3-7]86-*-elf* | i[3-7]86-*-rtems*)
+     targ_defvec=i386_elf32_vec
+diff -Nur binutils-2.36.1/config.sub blackhole-binutils-2.36.1/config.sub
+--- binutils-2.36.1/config.sub	2021-01-09 05:47:33.000000000 -0500
++++ blackhole-binutils-2.36.1/config.sub	2021-09-24 15:23:31.377217100 -0400
+@@ -1692,7 +1692,7 @@
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* | blackhole* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff -Nur binutils-2.36.1/gas/configure.tgt blackhole-binutils-2.36.1/gas/configure.tgt
+--- binutils-2.36.1/gas/configure.tgt	2021-01-09 05:47:33.000000000 -0500
++++ blackhole-binutils-2.36.1/gas/configure.tgt	2021-09-24 15:36:03.053474300 -0400
+@@ -219,6 +219,7 @@
+ 
+   i386-*-beospe*)			fmt=coff em=pe ;;
+   i386-*-beos*)				fmt=elf ;;
++  i386-*-blackhole*)		fmt=elf em=gnu ;;
+   i386-*-elfiamcu)			fmt=elf arch=iamcu ;;
+   i386-*-elf*)				fmt=elf ;;
+   i386-*-fuchsia*)			fmt=elf ;;
+diff -Nur binutils-2.36.1/ld/Makefile.am blackhole-binutils-2.36.1/ld/Makefile.am
+--- binutils-2.36.1/ld/Makefile.am	2021-01-09 05:47:34.000000000 -0500
++++ blackhole-binutils-2.36.1/ld/Makefile.am	2021-09-24 16:34:22.976554000 -0400
+@@ -284,6 +284,7 @@
+ 	eelf32xtensa.c \
+ 	eelf32z80.c \
+ 	eelf_i386.c \
++	eelf_i386_blackhole.c \
+ 	eelf_i386_be.c \
+ 	eelf_i386_fbsd.c \
+ 	eelf_i386_ldso.c \
+@@ -454,6 +455,7 @@
+ 	eelf_k1om.c \
+ 	eelf_k1om_fbsd.c \
+ 	eelf_x86_64.c \
++	eelf_x86_64_blackhole.c \
+ 	eelf_x86_64_cloudabi.c \
+ 	eelf_x86_64_fbsd.c \
+ 	eelf_x86_64_sol2.c \
+@@ -1099,3 +1101,16 @@
+ 	rm -rf ldscripts
+ 
+ MAINTAINERCLEANFILES += ld.info
++
++# BlackHoleOS Architecture Specific Emulation Generation
++# Contributed by FreeLancer Development Team
++
++# BlackHoleOS emulation file generator (32b - i386):
++eelf_i386_blackhole.c: $(srcdir)/emulparams/elf_i386_blackhole.sh \
++  $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++	${GENSCRIPTS} elf_i386_blackhole "$(tdir_elf_i386_blackhole)"
++ 
++# BlackHoleOS emulation file generator (64b - AMD64):
++eelf_x86_64_blackhole.c: $(srcdir)/emulparams/elf_x86_64_blackhole.sh \
++  $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++	${GENSCRIPTS} elf_x86_64_blackhole "$(tdir_elf_x86_64_blackhole)"
+diff -Nur binutils-2.36.1/ld/configure.tgt blackhole-binutils-2.36.1/ld/configure.tgt
+--- binutils-2.36.1/ld/configure.tgt	2021-01-09 05:47:34.000000000 -0500
++++ blackhole-binutils-2.36.1/ld/configure.tgt	2021-09-24 15:56:39.468105700 -0400
+@@ -310,6 +310,11 @@
+ i[3-7]86-*-rdos*)	targ_emul=elf_i386
+ 			targ_extra_emuls=elf_iamcu
+ 			;;
++i[3-7]86-*-blackhole*)
++			targ_emul=elf_i386_blackhole
++			targ_extra_emuls=elf_i386
++			targ64_extra_emuls="elf_x86_64_blackole elf_x86_64"
++			;;
+ i[3-7]86-*-bsd)		targ_emul=i386bsd
+ 			targ_extra_ofiles=
+ 			;;
+@@ -930,6 +935,10 @@
+ 			;;
+ x86_64-*-rdos*)		targ_emul=elf64rdos
+ 			;;
++x86_64-*-blackhole*)
++			targ_emul=elf_x86_64_blackhole
++			targ_extra_emuls="elf_i386_blackhole elf_x86_64 elf_i386"
++			;;
+ x86_64-*-cloudabi*)	targ_emul=elf_x86_64_cloudabi
+ 			;;
+ x86_64-*-linux-gnux32)	targ_emul=elf32_x86_64
+@@ -1046,6 +1055,10 @@
+ hppa*64*-*-hpux11*)
+   NATIVE_LIB_DIRS=/usr/lib/pa20_64
+   ;;
++  
++*-*-blackhole*)
++  NATIVE_LIB_DIRS='/usr/local/lib /lib /usr/lib /system/lib /system/lib/bh32api /system/lib/bh64api'
++  ;;
+ 
+ i[3-7]86-*-sysv4*)
+   NATIVE_LIB_DIRS='/usr/local/lib /usr/ccs/lib /lib /usr/lib'
+diff -Nur binutils-2.36.1/ld/emulparams/elf_i386_blackhole.sh blackhole-binutils-2.36.1/ld/emulparams/elf_i386_blackhole.sh
+--- binutils-2.36.1/ld/emulparams/elf_i386_blackhole.sh	1969-12-31 19:00:00.000000000 -0500
++++ blackhole-binutils-2.36.1/ld/emulparams/elf_i386_blackhole.sh	2021-09-24 16:01:04.537818300 -0400
+@@ -0,0 +1,30 @@
++source_sh ${srcdir}/emulparams/plt_unwind.sh
++source_sh ${srcdir}/emulparams/extern_protected_data.sh
++source_sh ${srcdir}/emulparams/dynamic_undefined_weak.sh
++source_sh ${srcdir}/emulparams/call_nop.sh
++source_sh ${srcdir}/emulparams/cet.sh
++source_sh ${srcdir}/emulparams/x86-64-level.sh
++source_sh ${srcdir}/emulparams/static.sh
++SCRIPT_NAME=elf
++OUTPUT_FORMAT="elf32-i386"
++NO_RELA_RELOCS=yes
++TEXT_START_ADDR=0x08048000
++MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
++COMMONPAGESIZE="CONSTANT (COMMONPAGESIZE)"
++ARCH=i386
++MACHINE=
++TEMPLATE_NAME=elf
++EXTRA_EM_FILE="elf-x86"
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
++NO_SMALL_DATA=yes
++SEPARATE_GOTPLT="SIZEOF (.got.plt) >= 12 ? 12 : 0"
++IREL_IN_PLT=
++# These sections are placed right after .plt section.
++OTHER_PLT_SECTIONS="
++.plt.got      ${RELOCATING-0} : { *(.plt.got) }
++.plt.sec      ${RELOCATING-0} : { *(.plt.sec) }
++"
++
++# Contributed by FreeLancer Development Team
++# Shell script for BlackHoleOS architecture.
+diff -Nur binutils-2.36.1/ld/emulparams/elf_x86_64_blackhole.sh blackhole-binutils-2.36.1/ld/emulparams/elf_x86_64_blackhole.sh
+--- binutils-2.36.1/ld/emulparams/elf_x86_64_blackhole.sh	1969-12-31 19:00:00.000000000 -0500
++++ blackhole-binutils-2.36.1/ld/emulparams/elf_x86_64_blackhole.sh	2021-09-24 16:10:57.472609700 -0400
+@@ -0,0 +1,42 @@
++source_sh ${srcdir}/emulparams/plt_unwind.sh
++source_sh ${srcdir}/emulparams/extern_protected_data.sh
++source_sh ${srcdir}/emulparams/dynamic_undefined_weak.sh
++source_sh ${srcdir}/emulparams/reloc_overflow.sh
++source_sh ${srcdir}/emulparams/call_nop.sh
++source_sh ${srcdir}/emulparams/cet.sh
++source_sh ${srcdir}/emulparams/x86-64-level.sh
++source_sh ${srcdir}/emulparams/x86-64-lam.sh
++source_sh ${srcdir}/emulparams/static.sh
++SCRIPT_NAME=elf
++ELFSIZE=64
++OUTPUT_FORMAT="elf64-x86-64"
++NO_REL_RELOCS=yes
++TEXT_START_ADDR=0x400000
++MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
++COMMONPAGESIZE="CONSTANT (COMMONPAGESIZE)"
++ARCH="i386:x86-64"
++MACHINE=
++TEMPLATE_NAME=elf
++EXTRA_EM_FILE="elf-x86"
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
++NO_SMALL_DATA=yes
++LARGE_SECTIONS=yes
++LARGE_BSS_AFTER_BSS=
++SEPARATE_GOTPLT="SIZEOF (.got.plt) >= 24 ? 24 : 0"
++IREL_IN_PLT=
++# These sections are placed right after .plt section.
++OTHER_PLT_SECTIONS="
++.plt.got      ${RELOCATING-0} : { *(.plt.got) }
++.plt.sec      ${RELOCATING-0} : { *(.plt.sec) }
++"
++
++if [ "x${host}" = "x${target}" ]; then
++  case " $EMULATION_LIBPATH " in
++    *" ${EMULATION_NAME} "*)
++      NATIVE=yes
++  esac
++fi
++
++# Contributed by FreeLancer Development Team
++# Shell script for BlackHoleOS architecture.
